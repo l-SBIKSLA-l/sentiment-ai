@@ -64,8 +64,14 @@ pipeline {
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-token', usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
+                    // 1. Connexion au registre
                     sh "echo \$REGISTRY_PASS | docker login ghcr.io -u \$REGISTRY_USER --password-stdin"
+                    
+                    // 2. CORRECTION: Créer le tag distant pour la version spécifique (SHA) avant le push
+                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
                     sh "docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                    
+                    // 3. Créer et pousser le tag latest
                     sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${REGISTRY}/${IMAGE_NAME}:latest"
                     sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
                 }
