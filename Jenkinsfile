@@ -10,14 +10,14 @@ pipeline {
     }
     
     stages {
-        // Stage 1: Informations du code source (Le téléchargement est géré automatiquement par Jenkins)
+        // Stage 1: Informations du code source
         stage('Checkout Info') {
             steps {
-                // Version robuste pour récupérer le nom de la branche réelle, même si env.BRANCH_NAME est null
                 script {
-                    env.ACTUAL_BRANCH = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+                    // Résout le problème du "detached HEAD" en cherchant le nom de la branche distante/locale liée au commit
+                    env.ACTUAL_BRANCH = sh(script: "git name-rev --name-only HEAD | sed 's|remotes/origin/||' | sed 's|tags/||'", returnStdout: true).trim()
                 }
-                echo "Branche détectée : ${env.ACTUAL_BRANCH}"
+                echo "Branche réelle détectée : ${env.ACTUAL_BRANCH}"
                 echo "Commit ID : ${IMAGE_TAG}"
                 sh 'git log --oneline -5'
             }
@@ -57,7 +57,7 @@ pipeline {
             }
         }
         
-        // Stage 4: Publication de l'image (uniquement si on est sur la branche main)
+        // Stage 4: Publication de l'image (S'exécute uniquement sur la branche main)
         stage('Push') {
             when {
                 expression { return env.ACTUAL_BRANCH == 'main' }
@@ -75,11 +75,11 @@ pipeline {
     
     post {
         always {
-            // Nettoyer les conteneurs et volumes de test résiduels
+            // Nettoyer les conteneurs et volumes de test résiduels pour éviter de saturer le serveur
             sh 'docker compose down -v 2>/dev/null || true'
         }
         success {
-            echo "Pipeline réussi ! Image poussée si sur main : ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+            echo "Pipeline réussi ! Image : ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
         }
         failure {
             echo 'Pipeline échoué. Consultez les logs ci-dessus.'
