@@ -5,19 +5,31 @@ services:
     build: .
     container_name: sentiment-staging
     ports:
-      - "8080:8000" # hôte:conteneur
+      - "8001:8000"
     environment:
-      - ENV=development
+      - ENV=staging
     networks:
       - cicd-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s    # fréquence des vérifications
-      timeout: 10s     # délai max avant échec
-      retries: 3       # nombre d'échecs avant "unhealthy"
-      start_period: 10s # délai de grâce au démarrage
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
+    networks:
+      - cicd-network
+    restart: unless-stopped
 
 networks:
   cicd-network:
-    driver: bridge # Jenkins et SonarQube le rejoindront dans les TPs suivants
+    driver: bridge
