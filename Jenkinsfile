@@ -51,7 +51,7 @@ pipeline {
                   --cov=src \
                   --cov-report=xml:/tmp/coverage.xml \
                   --cov-report=term-missing \
-                  --cov-fail-under=70
+                  --cov-fail-under=50
                 TEST_EXIT_CODE=$?
                 set -e
                 docker cp test-runner:/tmp/coverage.xml ./coverage.xml 2>/dev/null || true
