@@ -59,6 +59,10 @@ pipeline {
                 TEST_EXIT_CODE=$?
                 set -e
                 docker cp test-runner:/tmp/coverage.xml ./coverage.xml 2>/dev/null || true
+
+                # FIX: Adjust paths in coverage.xml so SonarQube understands them
+                sed -i "s|<source>/app</source>|<source>$WORKSPACE</source>|g" ./coverage.xml
+
                 docker rm -f test-runner 2>/dev/null || true
                 exit $TEST_EXIT_CODE
                 '''
