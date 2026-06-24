@@ -1,13 +1,32 @@
+import time
 import logging
-import sqlite3
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Gauge, Histogram
 from src.schemas import PredictionRequest, PredictionResponse
 from src.model import SentimentModel
 
 logger = logging.getLogger(__name__)
 app = FastAPI(title="SentimentAI", version="0.1.0")
 model = SentimentModel()
+
+predictions_total = Counter(
+    "sentiment_predictions_total",
+    "Nombre total de prédictions",
+    ["label", "status"],
+)
+
+confidence_gauge = Gauge(
+    "sentiment_confidence_score",
+    "Score de confiance de la dernière prédiction",
+    ["label"],
+)
+
+prediction_duration = Histogram(
+    "sentiment_prediction_duration_seconds",
+    "Durée des prédictions en secondes",
+    buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5],
+)
 
 Instrumentator().instrument(app).expose(app)
 
@@ -19,27 +38,14 @@ def health():
 
 @app.post("/predict", response_model=PredictionResponse)
 def predict(request: PredictionRequest):
-    result = model.predict(request.text)
-    return result
-
-
-@app.get("/user")
-def get_user(user_id: int = Query(...)):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-    user = cursor.fetchone()
-    conn.close()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"user": user}
-
-
-@app.get("/search")
-def search(q: str = ""):
-    conn = sqlite3.connect("app.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM items WHERE name LIKE ?", (f"%{q}%",))
-    results = cursor.fetchall()
-    conn.close()
-    return {"results": results}
+    start = time.time()
+    try:
+        result = model.predict(request.text)
+        duration = time.time() - start
+        predictions_total.labels(label=result["label"], status="ok").inc()
+        confidence_gauge.labels(label=result["label"]).set(result["score"])
+        prediction_duration.observe(duration)
+        return result
+    except Exception:
+        predictions_total.labels(label="UNKNOWN", status="error").inc()
+        raise
