@@ -134,6 +134,42 @@ pipeline {
                 sh 'curl -f http://localhost:8001/health || exit 1'
             }
         }
+
+        stage('Smoke Test') {
+            when { branch 'main' }
+            steps {
+                sh '''
+                echo "Attente demarrage (10 s)..."
+                sleep 10
+                curl -f http://localhost:8001/health || exit 1
+                echo "/health OK"
+                curl -s http://localhost:8001/metrics | grep -q sentiment_predictions_total || exit 1
+                echo "/metrics OK -- metriques SentimentAI presentes"
+                sleep 20
+                curl -s "http://localhost:9090/api/v1/query?query=up{job='sentiment-ai'}" | grep -q '"value":.*1' || exit 1
+                echo "Prometheus scrape sentiment-ai : UP"
+                curl -f http://localhost:3000/api/health || exit 1
+                echo "Grafana OK"
+                '''
+            }
+            post {
+                failure {
+                    sh 'docker logs prometheus || true'
+                    sh 'docker logs sentiment-staging || true'
+                    echo 'Smoke Test KO -- voir logs ci-dessus'
+                }
+            }
+        }
+
+        stage('IaC Apply Monitoring') {
+            when { branch 'main' }
+            steps {
+                dir('infra') {
+                    sh 'terraform init -input=false'
+                    sh "terraform apply -auto-approve -var='image_tag=${IMAGE_TAG}'"
+                }
+            }
+        }
     }
 
     post {

@@ -18,18 +18,6 @@ services:
       retries: 3
       start_period: 10s
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
-    networks:
-      - cicd-network
-    restart: unless-stopped
-
 networks:
   cicd-network:
-    driver: bridge
+    external: true
